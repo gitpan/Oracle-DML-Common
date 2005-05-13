@@ -4,5 +4,5 @@
 
 use Test::Harness;
 # Test::Harness::verbose=1;
-runtests(qw(t/DML::Common.t));
+runtests(qw(t/Common.t));
 

@@ -11,25 +11,24 @@ use Carp;
 use Debug::EchoMessage;
 use DBI;
 
-our $VERSION = 0.2;
+our $VERSION = 0.21;
 
 require Exporter;
 our @ISA         = qw(Exporter);
 our @EXPORT      = qw();
 our @EXPORT_OK   = qw(get_dbh is_object_exist 
-    get_table_definition 
   );
 our %EXPORT_TAGS = (
     all    =>[@EXPORT_OK],
     db_conn=>[qw(get_dbh is_object_exist
              )],
-    table  =>[qw(get_table_definition
+    table  =>[qw(
              )],
 );
 
 =head1 NAME
 
-Oracle::DML::Common - Perl class for creating Oracle triggers
+Oracle::DML::Common - Common routines for Oracle DML 
 
 =head1 SYNOPSIS
 
@@ -233,219 +232,7 @@ manipulating tables.
 
 It includes the following sub-routines:
 
-=head3 get_table_definition($dbh,$tn,$cns,$otp)
-
-Input variables:
-
-  $dbh - database handler, required.
-  $tn  - table/object name, required.
-         schema.table_name is allowed.
-  $cns - column names separated by comma.
-         Default is null, i.e., to get all the columns.
-         If specified, only get definition for those specified.
-  $otp - output array type:
-         AR|ARRAY        - returns ($cns,$df1,$cmt)
-         AH1|ARRAY_HASH1 - returns ($cns,$df2,$cmt)
-         HH|HASH         - returns ($cns,$df3,$cmt)
-         AH2|ARRAY_HASH2 - returns ($cns,$df4,$cmt)
-
-Variables used or routines called:
-
-  echoMSG - display messages.
-
-How to use:
-
-  ($cns,$df1,$cmt) = $self->getTableDef($dbh,$table_name,'','array');
-  ($cns,$df2,$cmt) = $self->getTableDef($dbh,$table_name,'','ah1');
-  ($cns,$df3,$cmt) = $self->getTableDef($dbh,$table_name,'','hash');
-  ($cns,$df4,$cmt) = $self->getTableDef($dbh,$table_name,'','ah2');
-
-Return:
-
-  $cns - a list of column names separated by comma.
-  $df1 - column definiton array ref in [$seq][$cnn].
-    where $seq is column sequence number, $cnn is array
-    index number corresponding to column names: 
-          0 - cname, 
-          1 - coltype, 
-          2 - width, 
-          3 - scale, 
-          4 - precision, 
-          5 - nulls, 
-          6 - colno,
-          7 - character_set_name.
-  $df2 - column definiton array ref in [$seq]{$itm}.
-    where $seq is column number (colno) and $itm are:
-          col - column name
-          seq - column sequence number
-          typ - column data type
-          wid - column width
-          max - max width
-          min - min width
-          dec - number of decimals
-          req - requirement: null or not null
-          dft - date format
-          dsp - description or comments
-  $df3 - {$cn}{$itm} when $otp = 'HASH'
-    where $cn is column name in lower case and
-          $itm are the same as the above
-  $df4 - [$seq]{$itm} when $otp = 'AH2'
-    where $seq is the column number, and $itm are:
-          cname     - column name (col)
-          coltype   - column data type (typ)
-          width     - column width (wid)
-          scale     - column scale (dec)
-          precision - column precision (wid for N)
-          nulls     - null or not null (req)
-          colno     - column sequence number (seq)
-          character_set_name - character set name
-
 =cut
-
-sub get_table_definition {
-    my $self = shift;
-    my($dbh, $tn, $cns, $otp) = @_;
-    # Input variables:
-    #   $dbh - database handler
-    #   $tn  - table name
-    #   $cns - column names
-    #
-    # 0. check inputs
-    croak "ERR: could not find database handler.\n" if !$dbh;
-    croak "ERR: no table or object name is specified.\n" if !$tn;
-    $tn = uc($tn);
-    $self->echoMSG("  - reading table $tn definition...", 1);
-    $otp = 'ARRAY' if (! defined($otp));
-    $otp = uc $otp;
-    if ($cns) { $cns =~ s/,\s*/','/g; $cns = "'$cns'"; }
-    #
-    # 1. retrieve column definitions
-    my($q,$msg);
-    if (index($tn,'.')>0) {   # it is in schema.table format
-        my ($sch,$tab) = ($tn =~ /([-\w]+)\.([-\w]+)/);
-        $q  = "  SELECT column_name,data_type,data_length,";
-        $q .= "data_scale,data_precision,\n             ";
-        $q .= "nullable,column_id,character_set_name\n";
-        $msg = "$q";
-        $q   .= "        FROM dba_tab_columns\n";
-        $msg .= "        FROM dba_tab_columns\n";
-        $q   .= "       WHERE owner = '$sch' AND table_name = '$tab'\n";
-        $msg .= "       WHERE owner = '$sch' AND table_name = '$tab'\n";
-    } else {
-        $q  = "  SELECT cname,coltype,width,scale,precision,nulls,";
-        $q .= "colno,character_set_name\n";
-        $msg = "$q";
-        $q   .= "        FROM col\n     WHERE tname = '$tn'";
-        $msg .= "        FROM col\n     WHERE tname = '$tn'\n";
-    }
-    if ($cns) {
-        $q   .= "         AND cname in (" . uc($cns) . ")\n";
-        $msg .= "         AND cname in (" . uc($cns) . ")\n";
-    }
-    if (index($tn,'.')>0) {   # it is in schema.table format
-        $q   .= "\n    ORDER BY table_name,column_id";
-        $msg .= "    ORDER BY table_name, column_id\n";
-    } else {
-        $q   .= "\n    ORDER BY tname, colno";
-        $msg .= "    ORDER BY tname, colno\n";
-    }
-    $self->echoMSG("    $msg", 2);
-    my $sth=$dbh->prepare($q) || croak "ERR: Stmt - $dbh->errstr";
-       $sth->execute() || croak "ERR: Stmt - $dbh->errstr";
-    my $arf = $sth->fetchall_arrayref;       # = output $df1
-    #
-    # 2. construct column name list
-    my $r = ${$arf}[0][0];
-    for my $i (1..$#{$arf}) { $r .= ",${$arf}[$i][0]"; }
-    $msg = $r; $msg =~ s/,/, /g;
-    $self->echoMSG("    $msg", 5);
-    #
-    # 3. get column comments
-    $q  = "SELECT column_name, comments\n      FROM user_col_comments";
-    $q .= "\n     WHERE table_name = '$tn'";
-    $msg  = "SELECT column_name, comments\nFROM user_col_comments";
-    $msg .= "\nWHERE table_name = '$tn'<p>";
-    $self->echoMSG("    $msg", 5);
-    my $s2=$dbh->prepare($q) || croak "ERR: Stmt - $dbh->errstr";
-       $s2->execute() || croak "ERR: Stmt - $dbh->errstr";
-    my $brf = $s2->fetchall_arrayref;
-    my (%cmt, $j, $k, $cn);
-    for my $i (0..$#{$brf}) {
-        $j = lc(${$brf}[$i][0]);             # column name
-        $cmt{$j} = ${$brf}[$i][1];           # comments
-    }
-    #
-    # 4. construct output $df2($def) and $df3($df2)
-    my $def = bless [], ref($self)||$self;   # = output $df2
-    my $df2 = bless {}, ref($self)||$self;   # = output $df3
-    for my $i (0..$#{$arf}) {
-        $j  = ${$arf}[$i][6]-1;              # column seq number
-        ${$def}[$j]{seq} = $j;               # column seq number
-        $cn = lc(${$arf}[$i][0]);            # column name
-        ${$def}[$j]{col} = uc($cn);          # column name
-        ${$def}[$j]{typ} = ${$arf}[$i][1];   # column type
-        if (${$arf}[$i][4]) {                # precision > 0
-            # it is NUMBER data type
-            ${$def}[$j]{wid} = ${$arf}[$i][4];  # column width
-            ${$def}[$j]{dec} = ${$arf}[$i][3];  # number decimal
-        } else {                             # CHAR or VARCHAR2
-            ${$def}[$j]{wid} = ${$arf}[$i][2];  # column width
-            ${$def}[$j]{dec} = ""               # number decimal
-        }
-        ${$def}[$j]{max} = ${$def}[$j]{wid};
-
-        if (${$def}[$j]{typ} =~ /date/i) {   # typ is DATE
-            ${$def}[$j]{max} = 17;           # set width to 17
-            ${$def}[$j]{wid} = 17;           # set width to 17
-            ${$def}[$j]{dft} = 'YYYYMMDD.HH24MISS';
-        } else {
-            ${$def}[$j]{dft} = '';           # set date format to null
-        }
-        if (${$arf}[$i][5] =~ /^(not null|N)/i) {
-            ${$def}[$j]{req} = 'NOT NULL';
-        } else {
-            ${$def}[$j]{req} = '';
-        }
-        if (exists $cmt{$cn}) {
-            ${$def}[$j]{dsp} =  $cmt{$cn};
-        } else {
-            ${$def}[$j]{dsp} = '';
-        }
-        ${$def}[$j]{min} = 0;
-        ${$df2}{$cn}{seq}  = $j;
-        ${$df2}{$cn}{col}  = ${$def}[$j]{col};
-        ${$df2}{$cn}{typ}  = ${$def}[$j]{typ};
-        ${$df2}{$cn}{dft}  = ${$def}[$j]{dft};
-        ${$df2}{$cn}{wid}  = ${$def}[$j]{wid};
-        ${$df2}{$cn}{dec}  = ${$def}[$j]{dec};
-        ${$df2}{$cn}{max}  = ${$def}[$j]{max};
-        ${$df2}{$cn}{min}  = ${$def}[$j]{min};
-        ${$df2}{$cn}{req}  = ${$def}[$j]{req};
-        ${$df2}{$cn}{dsp}  = ${$def}[$j]{dsp};
-    }
-    #
-    # 5. construct output array $df4
-    my $df4 = bless [],ref($self)||$self;   # = output $df4
-    for my $i (0..$#{$arf}) {
-        $j = lc(${$arf}[$i][0]);            # column name
-        push @$df4, {cname=>$j,         coltype=>${$arf}[$i][1],
-                width=>${$arf}[$i][2],    scale=>${$arf}[$i][3],
-            precision=>${$arf}[$i][4],    nulls=>${$arf}[$i][5],
-                colno=>${$arf}[$i][6],
-            character_set_name=>${$arf}[$i][7]};
-    }
-    #
-    # 6. output based on output type
-    if ($otp =~ /^(AR|ARRAY)$/i) {
-        return ($r, $arf, \%cmt);      # output ($cns,$df1,$cmt)
-    } elsif ($otp =~ /^(AH1|ARRAY_HASH1)$/i) {
-        return ($r, $def, \%cmt);      # output ($cns,$df2,$cmt)
-    } elsif ($otp =~ /^(HH|HASH)$/i) {
-        return ($r, $df2, \%cmt);      # output ($cns,$df3,$cmt)
-    } else {
-        return ($r, $df4, \%cmt);      # output ($cns,$df4,$cmt);
-    }
-}
 
 1;
 
@@ -461,6 +248,10 @@ This versionwas contained in Oracle::Trigger class.
 
 04/29/2005 (htu) - extracted common routines from Oracle::Trigger class
 and formed Oracle::DML::Common.
+
+=item * Version 0.21
+
+Remove get_table_definition method to I<Oracle::Schema> class.
 
 =cut
 

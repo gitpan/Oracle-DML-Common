@@ -1,5 +1,5 @@
 NAME
-    Oracle::DML::Common - Perl class for creating Oracle triggers
+    Oracle::DML::Common - Common routines for Oracle DML
 
 SYNOPSIS
       use Oracle::DML::Common;
@@ -102,73 +102,6 @@ METHODS
 
     It includes the following sub-routines:
 
-   get_table_definition($dbh,$tn,$cns,$otp)
-
-    Input variables:
-
-      $dbh - database handler, required.
-      $tn  - table/object name, required.
-             schema.table_name is allowed.
-      $cns - column names separated by comma.
-             Default is null, i.e., to get all the columns.
-             If specified, only get definition for those specified.
-      $otp - output array type:
-             AR|ARRAY        - returns ($cns,$df1,$cmt)
-             AH1|ARRAY_HASH1 - returns ($cns,$df2,$cmt)
-             HH|HASH         - returns ($cns,$df3,$cmt)
-             AH2|ARRAY_HASH2 - returns ($cns,$df4,$cmt)
-
-    Variables used or routines called:
-
-      echoMSG - display messages.
-
-    How to use:
-
-      ($cns,$df1,$cmt) = $self->getTableDef($dbh,$table_name,'','array');
-      ($cns,$df2,$cmt) = $self->getTableDef($dbh,$table_name,'','ah1');
-      ($cns,$df3,$cmt) = $self->getTableDef($dbh,$table_name,'','hash');
-      ($cns,$df4,$cmt) = $self->getTableDef($dbh,$table_name,'','ah2');
-
-    Return:
-
-      $cns - a list of column names separated by comma.
-      $df1 - column definiton array ref in [$seq][$cnn].
-        where $seq is column sequence number, $cnn is array
-        index number corresponding to column names: 
-              0 - cname, 
-              1 - coltype, 
-              2 - width, 
-              3 - scale, 
-              4 - precision, 
-              5 - nulls, 
-              6 - colno,
-              7 - character_set_name.
-      $df2 - column definiton array ref in [$seq]{$itm}.
-        where $seq is column number (colno) and $itm are:
-              col - column name
-              seq - column sequence number
-              typ - column data type
-              wid - column width
-              max - max width
-              min - min width
-              dec - number of decimals
-              req - requirement: null or not null
-              dft - date format
-              dsp - description or comments
-      $df3 - {$cn}{$itm} when $otp = 'HASH'
-        where $cn is column name in lower case and
-              $itm are the same as the above
-      $df4 - [$seq]{$itm} when $otp = 'AH2'
-        where $seq is the column number, and $itm are:
-              cname     - column name (col)
-              coltype   - column data type (typ)
-              width     - column width (wid)
-              scale     - column scale (dec)
-              precision - column precision (wid for N)
-              nulls     - null or not null (req)
-              colno     - column sequence number (seq)
-              character_set_name - character set name
-
 HISTORY
     * Version 0.1
         This versionwas contained in Oracle::Trigger class.
@@ -176,6 +109,9 @@ HISTORY
     * Version 0.2
         04/29/2005 (htu) - extracted common routines from Oracle::Trigger
         class and formed Oracle::DML::Common.
+
+    * Version 0.21
+        Remove get_table_definition method to *Oracle::Schema* class.
 
 SEE ALSO (some of docs that I check often)
         Data::Describe, Oracle::Loader, CGI::Getopt, File::Xcopy,

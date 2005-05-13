@@ -20,6 +20,7 @@ BEGIN {
     }
 }
 
+use lib 'inc';
 # pre-install handler; takes $module_name and $version
 sub MY::preinstall  { return 1; }   # return false to skip install
 
@@ -29,10 +30,10 @@ use ExtUtils::AutoInstall (
     -version        => '0.40',
 );
 WriteMakefile(
-    DISTNAME        => 'Oracle-DML-Common-0.2.tar.gz',
-    ABSTRACT        => 'Perl class for creating Oracle triggers',
+    DISTNAME        => 'Oracle-DML-Common-0.21.tar.gz',
+    ABSTRACT        => 'Common routines for Oracle DML',
     NAME            => 'Oracle::DML::Common'         ,
     PREREQ_PM       => {Test::Harness => 0.1,Test::More => 0.45,},
     AUTHOR          => 'geotiger2001@yahoo.com'      ,
-    VERSION         => 0.2                           ,
+    VERSION         => 0.21                          ,
 );
